@@ -10,6 +10,9 @@ import java.util.Random;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
+import org.bukkit.block.data.Bisected;
+import org.bukkit.block.data.Bisected.Half;
+import org.bukkit.block.data.type.SeaPickle;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.BlockPopulator;
 import org.bukkit.generator.ChunkGenerator;
@@ -35,8 +38,8 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
     private final Map<Environment, WorldConfig> seaHeight = new EnumMap<>(Environment.class);
     private final Map<Vector, Material> roofChunk = new HashMap<>();
     private static final Map<Environment, FloorMats> floorMats = Map.of(Environment.NETHER,
-            new FloorMats(Material.NETHERRACK, Material.SOUL_SAND), Environment.NORMAL,
-            new FloorMats(Material.SANDSTONE, Material.SAND), Environment.THE_END,
+            new FloorMats(Material.NETHERRACK, Material.NETHERRACK), Environment.NORMAL,
+            new FloorMats(Material.SMOOTH_SANDSTONE, Material.SMOOTH_SANDSTONE), Environment.THE_END,
             new FloorMats(Material.END_STONE, Material.END_STONE));
     private PerlinOctaveGenerator gen;
 
@@ -77,10 +80,28 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
     private void addNoise(@NonNull WorldInfo worldInfo, int chunkX, int chunkZ, @NonNull ChunkData chunkData) {
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                int n = (int)(25 * gen.noise((chunkX << 4) + (double)x, (chunkZ << 4) + (double)z, 0.5, 0.5, true));
-                for (int y = worldInfo.getMinHeight(); y < 25 + n; y++) {
-                    chunkData.setBlock(x, y, z, rand.nextBoolean() ? floorMats.get(worldInfo.getEnvironment()).top()
-                            : floorMats.get(worldInfo.getEnvironment()).base());
+            	int noiseRange = 25; //25
+                int n = (int)(noiseRange * gen.noise((chunkX << 4) + (double)x, (chunkZ << 4) + (double)z, 0.5, 0.5, true));
+                int maxY = worldInfo.getMinHeight()+ noiseRange + n;
+                for (int y = worldInfo.getMinHeight(); y <= maxY; y++) {
+                    chunkData.setBlock(x, y, z, rand.nextBoolean() ? floorMats.get(worldInfo.getEnvironment()).top()  : floorMats.get(worldInfo.getEnvironment()).base());
+                }
+                //dodatki
+                if (worldInfo.getEnvironment() == Environment.NORMAL && rand.nextInt(100) < 30) {
+                	if (rand.nextInt(100) < 30) {
+                		SeaPickle pickle = (SeaPickle) Material.SEA_PICKLE.createBlockData();
+                		pickle.setPickles(rand.nextInt(pickle.getMinimumPickles(), pickle.getMaximumPickles()+1));
+                		chunkData.setBlock(x, maxY + 1, z, pickle);
+                	} else if (rand.nextBoolean()) {
+                		chunkData.setBlock(x, maxY + 1, z, Material.SEAGRASS);
+                	} else {
+                		chunkData.setBlock(x, maxY + 1, z, Material.TALL_SEAGRASS);
+                		Bisected bisected = (Bisected) Material.TALL_SEAGRASS.createBlockData();
+                		bisected.setHalf(Half.TOP);
+                		chunkData.setBlock(x, maxY + 2, z, bisected);
+                	}
+                } else if (worldInfo.getEnvironment() == Environment.NETHER && rand.nextInt(100) < 15) {
+                	chunkData.setBlock(x, maxY, z, Material.GLOWSTONE);
                 }
             }
         }
@@ -94,7 +115,7 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
     }
     @Override
     public boolean shouldGenerateSurface()  {
-        return addon.getSettings().isOceanFloor();
+        return false; // addon.getSettings().isOceanFloor();
     }
     @Override
     public boolean shouldGenerateCaves()  {
