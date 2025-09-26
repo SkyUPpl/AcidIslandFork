@@ -54,7 +54,7 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
         seaHeight.put(Environment.NORMAL, new WorldConfig(addon.getSettings().getSeaHeight(), addon.getSettings().getWaterBlock()));
         seaHeight.put(Environment.NETHER, new WorldConfig(addon.getSettings().getNetherSeaHeight(), addon.getSettings().getNetherWaterBlock()));
         seaHeight.put(Environment.THE_END, new WorldConfig(addon.getSettings().getEndSeaHeight(), addon.getSettings().getEndWaterBlock()));
-        rand.setSeed(System.currentTimeMillis());
+        rand.setSeed(2137);
         gen = new PerlinOctaveGenerator((long) (rand.nextLong() * rand.nextGaussian()), 8);
         gen.setScale(1.0/30.0);
         makeNetherRoof();
