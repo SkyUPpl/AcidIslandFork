@@ -2,7 +2,6 @@ package world.bentobox.acidisland.listeners;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,23 +17,25 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.scheduler.BukkitScheduler;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import com.earth2me.essentials.Essentials;
 import com.earth2me.essentials.User;
 
 import world.bentobox.acidisland.AISettings;
 import world.bentobox.acidisland.AcidIsland;
-import world.bentobox.acidisland.mocks.ServerMocks;
 import world.bentobox.bentobox.BentoBox;
 import world.bentobox.bentobox.managers.IslandWorldManager;
 import world.bentobox.bentobox.managers.IslandsManager;
@@ -45,8 +46,8 @@ import world.bentobox.bentobox.util.Util;
  * @author tastybento
  *
  */
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({Bukkit.class, Util.class})
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class LavaCheckTest {
     @Mock
     private AcidIsland addon;
@@ -88,15 +89,17 @@ public class LavaCheckTest {
 
     private LavaCheck lc;
 
-    @BeforeClass
-    public static void beforeClass() {
-        ServerMocks.newServer();
-    }
+    private ServerMock server;
+    private MockedStatic<Bukkit> mockedBukkit;
+    private MockedStatic<Util> mockedUtil;
 
-    @Before
-    public void setUp() {
-        PowerMockito.mockStatic(Bukkit.class, Mockito.RETURNS_MOCKS);
-        when(Bukkit.getScheduler()).thenReturn(scheduler);
+    @BeforeEach
+    void setUp() {
+        server = MockBukkit.mock();
+        mockedBukkit = Mockito.mockStatic(Bukkit.class, Mockito.RETURNS_DEEP_STUBS);
+        mockedBukkit.when(Bukkit::getMinecraftVersion).thenReturn("1.21.11");
+        mockedBukkit.when(Bukkit::getServer).thenReturn(server);
+        mockedBukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
         settings = new AISettings();
         when(addon.getSettings()).thenReturn(settings);
         when(addon.getOverWorld()).thenReturn(world);
@@ -106,19 +109,26 @@ public class LavaCheckTest {
         when(block.getLocation()).thenReturn(location);
         when(airBlock.getWorld()).thenReturn(world);
 
-
-        PowerMockito.mockStatic(Util.class);
-        when(Util.getWorld(any())).thenAnswer(arg -> (World)arg.getArgument(0, World.class));
+        mockedUtil = Mockito.mockStatic(Util.class);
+        mockedUtil.when(() -> Util.getWorld(any())).thenAnswer(arg -> arg.getArgument(0, World.class));
 
         // CUT
         lc = new LavaCheck(addon);
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockedUtil.closeOnDemand();
+        mockedBukkit.closeOnDemand();
+        Mockito.framework().clearInlineMocks();
+        MockBukkit.unmock();
     }
 
     /**
      * Test method for {@link world.bentobox.acidisland.listeners.LavaCheck#onCleanstoneGen(org.bukkit.event.block.BlockFromToEvent)}.
      */
     @Test
-    public void testOnCleanstoneGen() {
+    void testOnCleanstoneGen() {
         ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
 
         BlockFromToEvent e = new BlockFromToEvent(airBlock, block);
@@ -129,15 +139,15 @@ public class LavaCheckTest {
         when(block.getType()).thenReturn(Material.STONE);
         // Run runnable
         argument.getValue().run();
-        verify(block).setType(eq(Material.WATER));
-        verify(world).playSound(eq(location), eq(Sound.ENTITY_CREEPER_PRIMED), eq(1F), eq(2F));
+        verify(block).setType(Material.WATER);
+        verify(world).playSound(location, Sound.ENTITY_CREEPER_PRIMED, 1F, 2F);
     }
 
     /**
      * Test method for {@link world.bentobox.acidisland.listeners.LavaCheck#onCleanstoneGen(org.bukkit.event.block.BlockFromToEvent)}.
      */
     @Test
-    public void testOnCleanstoneGenNoStone() {
+    void testOnCleanstoneGenNoStone() {
         ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
 
         BlockFromToEvent e = new BlockFromToEvent(airBlock, block);
@@ -156,7 +166,7 @@ public class LavaCheckTest {
      * Test method for {@link world.bentobox.acidisland.listeners.LavaCheck#onCleanstoneGen(org.bukkit.event.block.BlockFromToEvent)}.
      */
     @Test
-    public void testOnCleanstoneGenWrongWorld() {
+    void testOnCleanstoneGenWrongWorld() {
         when(block.getWorld()).thenReturn(Mockito.mock(World.class));
         when(airBlock.getWorld()).thenReturn(Mockito.mock(World.class));
         BlockFromToEvent e = new BlockFromToEvent(airBlock, block);
@@ -170,7 +180,7 @@ public class LavaCheckTest {
      * Test method for {@link world.bentobox.acidisland.listeners.LavaCheck#onCleanstoneGen(org.bukkit.event.block.BlockFromToEvent)}.
      */
     @Test
-    public void testOnCleanstoneGenNotWater() {
+    void testOnCleanstoneGenNotWater() {
         when(block.getType()).thenReturn(Material.LAVA);
 
         BlockFromToEvent e = new BlockFromToEvent(airBlock, block);
@@ -183,7 +193,7 @@ public class LavaCheckTest {
      * Test method for {@link world.bentobox.acidisland.listeners.LavaCheck#onCleanstoneGen(org.bukkit.event.block.BlockFromToEvent)}.
      */
     @Test
-    public void testOnCleanstoneGenNoAcid() {
+    void testOnCleanstoneGenNoAcid() {
         // No acid damage
         settings.setAcidDamage(0);
 

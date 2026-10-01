@@ -27,6 +27,7 @@ import world.bentobox.acidisland.AcidIsland;
 import world.bentobox.acidisland.events.EntityDamageByAcidEvent;
 import world.bentobox.acidisland.events.EntityDamageByAcidEvent.Acid;
 import world.bentobox.acidisland.events.ItemDestroyByAcidEvent;
+import world.bentobox.acidisland.geysers.GeyserOfferingsTask;
 import world.bentobox.acidisland.listeners.AcidEffect;
 
 public class AcidTask {
@@ -57,53 +58,63 @@ public class AcidTask {
     void findEntities() {
         Map<Entity, Long> burnList = new WeakHashMap<>();
         for (Entity e : getEntityStream()) {
-            if (e instanceof Item || (!IMMUNE.contains(e.getType()) && !(e instanceof WaterMob))) {
+            if (isAcidSusceptible(e)) {
                 int x = e.getLocation().getBlockX() >> 4;
                 int z = e.getLocation().getBlockZ() >> 4;
-                if (e.getWorld().isChunkLoaded(x,z)) {
-                    if (e.getLocation().getBlock().getType().equals(Material.WATER)) {
-                        if ((e instanceof Monster || e instanceof MagmaCube) && addon.getSettings().getAcidDamageMonster() > 0D) {
-                            burnList.put(e, (long)addon.getSettings().getAcidDamageMonster());
-
-                        } else if ((e instanceof Animals) && addon.getSettings().getAcidDamageAnimal() > 0D
-                                && (!e.getType().equals(EntityType.CHICKEN) || addon.getSettings().isAcidDamageChickens())) {
-                            burnList.put(e, (long)addon.getSettings().getAcidDamageAnimal());
-                        } else if (addon.getSettings().getAcidDestroyItemTime() > 0 && e instanceof Item) {
-                            burnList.put(e, System.currentTimeMillis());
-                        }
-                    }
+                if (e.getWorld().isChunkLoaded(x, z)
+                        && e.getLocation().getBlock().getType().equals(Material.WATER)) {
+                    addToBurnList(e, burnList);
                 }
             }
         }
         // Remove any entities not on the burn list
         itemsInWater.keySet().removeIf(i -> !burnList.containsKey(i));
-
         if (!burnList.isEmpty()) {
-            Bukkit.getScheduler().runTask(addon.getPlugin(), () ->
             // Burn everything
-            burnList.forEach(this::applyDamage));
+            Bukkit.getScheduler().runTask(addon.getPlugin(), () -> burnList.forEach(this::applyDamage));
+        }
+    }
+
+    private boolean isAcidSusceptible(Entity e) {
+        return e instanceof Item || (!IMMUNE.contains(e.getType()) && !(e instanceof WaterMob));
+    }
+
+    private void addToBurnList(Entity e, Map<Entity, Long> burnList) {
+        if ((e instanceof Monster || e instanceof MagmaCube) && addon.getSettings().getAcidDamageMonster() > 0D) {
+            burnList.put(e, (long) addon.getSettings().getAcidDamageMonster());
+        } else if (e instanceof Animals && addon.getSettings().getAcidDamageAnimal() > 0D
+                && (!e.getType().equals(EntityType.CHICKEN) || addon.getSettings().isAcidDamageChickens())) {
+            burnList.put(e, (long) addon.getSettings().getAcidDamageAnimal());
+        } else if (addon.getSettings().getAcidDestroyItemTime() > 0 && e instanceof Item) {
+            burnList.put(e, System.currentTimeMillis());
         }
     }
 
     void applyDamage(Entity e, long damage) {
-        if (e instanceof LivingEntity) {
-            double actualDamage = Math.max(0, damage - damage * AcidEffect.getDamageReduced((LivingEntity)e));
+        if (e instanceof LivingEntity livingEntity) {
+            double actualDamage = Math.max(0, damage - damage * AcidEffect.getDamageReduced(livingEntity));
             EntityDamageByAcidEvent event = new EntityDamageByAcidEvent(e, actualDamage, Acid.WATER);
             // Fire event
             Bukkit.getPluginManager().callEvent(event);
             if (!event.isCancelled()) {
-                ((LivingEntity)e).damage(actualDamage);
+                livingEntity.damage(actualDamage);
             }
-        } else if (addon.getSettings().getAcidDestroyItemTime() > 0 && e instanceof Item){
+        } else if (addon.getSettings().getAcidDestroyItemTime() > 0 && e instanceof Item item) {
             // Item
             if (e.getLocation().getBlock().getType().equals(Material.WATER)) {
                 itemsInWater.putIfAbsent(e, damage + addon.getSettings().getAcidDestroyItemTime() * 1000);
                 if (System.currentTimeMillis() > itemsInWater.get(e)) {
+                    itemsInWater.remove(e);
+                    // Items dissolving within a vent's pool are counted as
+                    // offerings rather than lost to the acid
+                    GeyserOfferingsTask geysers = addon.getGeyserOfferingsTask();
+                    if (geysers != null && geysers.offerToVent(item)) {
+                        return;
+                    }
                     e.getWorld().playSound(e.getLocation(), Sound.ENTITY_CREEPER_PRIMED, 3F, 3F);
                     e.remove();
-                    itemsInWater.remove(e);
                     // Fire event
-                    Bukkit.getPluginManager().callEvent(new ItemDestroyByAcidEvent((Item)e));
+                    Bukkit.getPluginManager().callEvent(new ItemDestroyByAcidEvent(item));
                 }
             } else {
                 itemsInWater.remove(e);

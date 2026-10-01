@@ -11,7 +11,6 @@ import java.util.Set;
 import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.block.Biome;
 import org.bukkit.entity.EntityType;
 import org.bukkit.potion.PotionEffectType;
 
@@ -140,6 +139,33 @@ public class AISettings implements WorldSettings {
     @ConfigEntry(path = "acid.damage.protection.full-armor")
     private boolean fullArmorProtection;
 
+    /*  PURIFIED WATER  */
+    @ConfigComment("Enable the purified water mechanic. Drinking acid water from a bottle damages")
+    @ConfigComment("the player; drinking purified water heals them. Purified water can be made by")
+    @ConfigComment("collecting rain in a cauldron (dripstone fills it as purified; rain/bucket fills")
+    @ConfigComment("it as acid), smelting a water bottle in a furnace, brewing water bottles with coal,")
+    @ConfigComment("or smelting a water bucket in a furnace (if bucket-furnace-enabled is true).")
+    @ConfigEntry(path = "acid.purified-water.enabled", since = "1.21")
+    private boolean purifiedWaterEnabled = true;
+
+    @ConfigComment("Health restored to a player who drinks a purified water bottle (in half-hearts)")
+    @ConfigEntry(path = "acid.purified-water.heal-amount", since = "1.21")
+    private double purifiedWaterHeal = 4.0;
+
+    @ConfigComment("Allow purifying a water bucket by smelting it in a furnace.")
+    @ConfigComment("The cook time is 2000 ticks (100 seconds) to simulate the effort of boiling.")
+    @ConfigComment("Disable if this feels too easy for your server's balance.")
+    @ConfigEntry(path = "acid.purified-water.bucket-furnace-enabled", since = "1.21")
+    private boolean purifiedBucketFurnaceEnabled = true;
+
+    @ConfigComment("Run the purified water mechanic in the addon's Nether world (island or vanilla).")
+    @ConfigEntry(path = "acid.purified-water.nether-enabled", since = "1.22")
+    private boolean purifiedWaterNetherEnabled = true;
+
+    @ConfigComment("Run the purified water mechanic in the addon's End world (island or vanilla).")
+    @ConfigEntry(path = "acid.purified-water.end-enabled", since = "1.22")
+    private boolean purifiedWaterEndEnabled = true;
+
 
     /*      WORLD       */
     @ConfigComment("Friendly name for this world. Used in admin commands. Must be a single word")
@@ -236,10 +262,63 @@ public class AISettings implements WorldSettings {
     @ConfigEntry(path = "world.ocean-floor", needsReset = true)
     private boolean oceanFloor = false;
 
+    @ConfigComment("Sulfur vents")
+    @ConfigComment("Chance (0-100) per chunk of a sulfur vent generating just below the sea surface.")
+    @ConfigComment("Vents are made of potent sulfur over a magma block and bubble, gas, and erupt as geysers.")
+    @ConfigComment("Changing this only affects newly generated chunks.")
+    @ConfigComment("Requires Minecraft 26.2 or later - ignored on older servers.")
+    @ConfigEntry(path = "world.sulfur-vent-chance")
+    private int sulfurVentChance = 10;
+
+    @ConfigComment("Geyser offerings")
+    @ConfigComment("Items thrown into the water around a sulfur vent are consumed as offerings and")
+    @ConfigComment("transmuted into rewards that are spewed out when the vent next erupts as a geyser.")
+    @ConfigComment("Rewards are defined in geyser-loot.yml in the addon's data folder.")
+    @ConfigComment("Works with acid item destruction: items the acid destroys within a vent's pool")
+    @ConfigComment("count as offerings instead of being lost.")
+    @ConfigComment("Requires Minecraft 26.2 or later - ignored on older servers.")
+    @ConfigEntry(path = "world.geyser-offerings.enabled")
+    private boolean geyserOfferings = true;
+
+    @ConfigComment("Maximum number of rewards a single eruption can spew, however many items were offered.")
+    @ConfigEntry(path = "world.geyser-offerings.max-rewards")
+    private int geyserMaxRewards = 12;
+
+    @ConfigComment("Answer an offering with rewards of roughly the same worth, instead of one")
+    @ConfigComment("random reward per item. A vent transmutes rather than destroys: feed it a")
+    @ConfigComment("diamond and it owes a diamond's worth back, feed it cobble and it owes")
+    @ConfigComment("cobble. Worth comes from geyser-values.yml, which can defer to the Level")
+    @ConfigComment("addon's block values. Turn this off for the old one-roll-per-item payout.")
+    @ConfigEntry(path = "world.geyser-offerings.match-value")
+    private boolean geyserMatchValue = true;
+
+    @ConfigComment("Fraction of the offered worth a vent pays back when matching worth.")
+    @ConfigComment("1.0 is a fair trade, below 1.0 makes the vent take a cut, above 1.0 makes")
+    @ConfigComment("offering profitable in itself - which players will farm, so raise with care.")
+    @ConfigEntry(path = "world.geyser-offerings.exchange-rate")
+    private double geyserExchangeRate = 1.0;
+
+    @ConfigComment("The most a single reward may be worth, as a multiple of the worth of the")
+    @ConfigComment("richest item offered. A stack of cobble is worth an emerald and a cobble")
+    @ConfigComment("generator is infinite, so without this a vent becomes a gem printer. Rewards")
+    @ConfigComment("named in a from: list in geyser-loot.yml ignore this - a transmutation the")
+    @ConfigComment("admin has written down is always allowed. Set to 0 for no limit.")
+    @ConfigEntry(path = "world.geyser-offerings.reward-ceiling")
+    private double geyserRewardCeiling = 8.0;
+
+    @ConfigComment("Provoke a fed vent into erupting a few seconds after it is fed, instead of")
+    @ConfigComment("waiting for the vanilla eruption cycle, so the reward follows the offering")
+    @ConfigComment("while the player is still there to see it. Turn this off to leave eruption")
+    @ConfigComment("timing entirely to vanilla - offerings are then held until the vent erupts.")
+    @ConfigEntry(path = "world.geyser-offerings.erupt-on-offering")
+    private boolean geyserEruptOnOffering = true;
+
     @ConfigComment("Structures")
     @ConfigComment("This creates an vanilla structures in the worlds.")
+    @ConfigComment("Trial chambers and other underground structures generate buried")
+    @ConfigComment("beneath the ocean floor, giving a reason to dig down.")
     @ConfigEntry(path = "world.make-structures", needsReset = true)
-    private boolean makeStructures = false;
+    private boolean makeStructures = true;
 
     @ConfigComment("Caves")
     @ConfigComment("This creates an vanilla caves in the worlds.")
@@ -262,14 +341,16 @@ public class AISettings implements WorldSettings {
     private GameMode defaultGameMode = GameMode.SURVIVAL;
 
     @ConfigComment("The default biome for the overworld")
+    @ConfigComment("SULFUR_CAVES (Minecraft 26.2+) gives acid-green water with green fog.")
+    @ConfigComment("On older servers this biome does not exist and WARM_OCEAN is used instead.")
     @ConfigEntry(path = "world.default-biome")
-    private Biome defaultBiome = Biome.WARM_OCEAN;
+    private String defaultBiome = "SULFUR_CAVES";
     @ConfigComment("The default biome for the nether world (this may affect what mobs can spawn)")
     @ConfigEntry(path = "world.default-nether-biome")
-    private Biome defaultNetherBiome = Biome.NETHER_WASTES;
+    private String defaultNetherBiome = "NETHER_WASTES";
     @ConfigComment("The default biome for the end world (this may affect what mobs can spawn)")
     @ConfigEntry(path = "world.default-end-biome")
-    private Biome defaultEndBiome = Biome.THE_END;
+    private String defaultEndBiome = "THE_END";
 
     @ConfigComment("The maximum number of players a player can ban at any one time in this game mode.")
     @ConfigComment("The permission acidisland.ban.maxlimit.X where X is a number can also be used per player")
@@ -596,18 +677,24 @@ public class AISettings implements WorldSettings {
 
     // Deaths
     @ConfigComment("Whether deaths are counted or not.")
+    @ConfigComment("If false, BentoBox does not count deaths and the Level addon does not record deaths against islands.")
     @ConfigEntry(path = "island.deaths.counted")
     private boolean deathsCounted = true;
 
     @ConfigComment("Maximum number of deaths to count. The death count can be used by add-ons.")
+    @ConfigComment("Since Level 2.29.0 this also caps how many deaths each member can contribute to an island's death penalty.")
     @ConfigEntry(path = "island.deaths.max")
     private int deathsMax = 10;
 
-    @ConfigComment("When a player joins a team, reset their death count")
+    @ConfigComment("When a player joins a team, reset their death count.")
+    @ConfigComment("This only affects BentoBox's own per-player death count, used by the %acidisland_deaths% placeholder.")
+    @ConfigComment("Since Level 2.29.0, island levels use per-island death tracking and are not affected by this setting.")
     @ConfigEntry(path = "island.deaths.team-join-reset")
     private boolean teamJoinDeathReset = true;
 
-    @ConfigComment("Reset player death count when they start a new island or reset and island")
+    @ConfigComment("Reset player death count when they start a new island or reset an island.")
+    @ConfigComment("This only affects BentoBox's own per-player death count.")
+    @ConfigComment("Since Level 2.29.0 the Level addon clears an island's own death record automatically when it is reset or deleted.")
     @ConfigEntry(path = "island.deaths.reset-on-new-island")
     private boolean deathsResetOnNewIsland = true;
 
@@ -682,6 +769,36 @@ public class AISettings implements WorldSettings {
     public int getAcidRainDamage() {
         return acidRainDamage;
     }
+    /**
+     * @return health restored when drinking purified water (half-hearts)
+     */
+    public double getPurifiedWaterHeal() {
+        return purifiedWaterHeal;
+    }
+    /**
+     * @return true if the purified water mechanic is enabled
+     */
+    public boolean isPurifiedWaterEnabled() {
+        return purifiedWaterEnabled;
+    }
+    /**
+     * @return true if water buckets can be purified by smelting in a furnace
+     */
+    public boolean isPurifiedBucketFurnaceEnabled() {
+        return purifiedBucketFurnaceEnabled;
+    }
+    /**
+     * @return true if the purified water mechanic runs in the island Nether
+     */
+    public boolean isPurifiedWaterNetherEnabled() {
+        return purifiedWaterNetherEnabled;
+    }
+    /**
+     * @return true if the purified water mechanic runs in the island End
+     */
+    public boolean isPurifiedWaterEndEnabled() {
+        return purifiedWaterEndEnabled;
+    }
 
     @Override
     public int getBanLimit() {
@@ -704,7 +821,7 @@ public class AISettings implements WorldSettings {
     /**
      * @return the defaultBiome
      */
-    public Biome getDefaultBiome() {
+    public String getDefaultBiome() {
         return defaultBiome;
     }
     /**
@@ -742,6 +859,7 @@ public class AISettings implements WorldSettings {
      * @return the defaultIslandProtection
      * @deprecated since 1.21
      */
+    @Deprecated(since = "1.21")
     @Override
     public Map<Flag, Integer> getDefaultIslandFlags() {
         return Collections.emptyMap();
@@ -752,6 +870,7 @@ public class AISettings implements WorldSettings {
      * @return the defaultIslandSettings
      * @deprecated since 1.21
      */
+    @Deprecated(since = "1.21")
     @Override
     public Map<Flag, Integer> getDefaultIslandSettings() {
         return Collections.emptyMap();
@@ -1158,6 +1277,36 @@ public class AISettings implements WorldSettings {
         this.acidDamage = acidDamage;
     }
     /**
+     * @param purifiedWaterEnabled true to enable the purified water mechanic
+     */
+    public void setPurifiedWaterEnabled(boolean purifiedWaterEnabled) {
+        this.purifiedWaterEnabled = purifiedWaterEnabled;
+    }
+    /**
+     * @param purifiedWaterHeal health restored when drinking purified water (half-hearts)
+     */
+    public void setPurifiedWaterHeal(double purifiedWaterHeal) {
+        this.purifiedWaterHeal = purifiedWaterHeal;
+    }
+    /**
+     * @param purifiedBucketFurnaceEnabled true to allow furnace-purifying water buckets
+     */
+    public void setPurifiedBucketFurnaceEnabled(boolean purifiedBucketFurnaceEnabled) {
+        this.purifiedBucketFurnaceEnabled = purifiedBucketFurnaceEnabled;
+    }
+    /**
+     * @param purifiedWaterNetherEnabled true to run the mechanic in the island Nether
+     */
+    public void setPurifiedWaterNetherEnabled(boolean purifiedWaterNetherEnabled) {
+        this.purifiedWaterNetherEnabled = purifiedWaterNetherEnabled;
+    }
+    /**
+     * @param purifiedWaterEndEnabled true to run the mechanic in the island End
+     */
+    public void setPurifiedWaterEndEnabled(boolean purifiedWaterEndEnabled) {
+        this.purifiedWaterEndEnabled = purifiedWaterEndEnabled;
+    }
+    /**
      * @param acidDamageAnimal the acidDamageAnimal to set
      */
     public void setAcidDamageAnimal(int acidDamageAnimal) {
@@ -1250,7 +1399,7 @@ public class AISettings implements WorldSettings {
     /**
      * @param defaultBiome the defaultBiome to set
      */
-    public void setDefaultBiome(Biome defaultBiome) {
+    public void setDefaultBiome(String defaultBiome) {
         this.defaultBiome = defaultBiome;
     }
     /**
@@ -1952,25 +2101,25 @@ public class AISettings implements WorldSettings {
     /**
      * @return the defaultNetherBiome
      */
-    public Biome getDefaultNetherBiome() {
+    public String getDefaultNetherBiome() {
         return defaultNetherBiome;
     }
     /**
      * @param defaultNetherBiome the defaultNetherBiome to set
      */
-    public void setDefaultNetherBiome(Biome defaultNetherBiome) {
+    public void setDefaultNetherBiome(String defaultNetherBiome) {
         this.defaultNetherBiome = defaultNetherBiome;
     }
     /**
      * @return the defaultEndBiome
      */
-    public Biome getDefaultEndBiome() {
+    public String getDefaultEndBiome() {
         return defaultEndBiome;
     }
     /**
      * @param defaultEndBiome the defaultEndBiome to set
      */
-    public void setDefaultEndBiome(Biome defaultEndBiome) {
+    public void setDefaultEndBiome(String defaultEndBiome) {
         this.defaultEndBiome = defaultEndBiome;
     }
     /**
@@ -2054,6 +2203,104 @@ public class AISettings implements WorldSettings {
     }
     public void setOceanFloor(boolean oceanFloor) {
         this.oceanFloor = oceanFloor;
+    }
+
+    /**
+     * @return the sulfurVentChance
+     */
+    public int getSulfurVentChance() {
+        return sulfurVentChance;
+    }
+
+    /**
+     * @param sulfurVentChance chance (0-100) per chunk of a sulfur vent generating
+     */
+    public void setSulfurVentChance(int sulfurVentChance) {
+        this.sulfurVentChance = sulfurVentChance;
+    }
+
+    /**
+     * @return true if sulfur vents accept item offerings and transmute them into rewards
+     */
+    public boolean isGeyserOfferings() {
+        return geyserOfferings;
+    }
+
+    /**
+     * @param geyserOfferings the geyserOfferings to set
+     */
+    public void setGeyserOfferings(boolean geyserOfferings) {
+        this.geyserOfferings = geyserOfferings;
+    }
+
+    /**
+     * @return the maximum number of rewards a single eruption can spew
+     */
+    public int getGeyserMaxRewards() {
+        return geyserMaxRewards;
+    }
+
+    /**
+     * @param geyserMaxRewards the geyserMaxRewards to set
+     */
+    public void setGeyserMaxRewards(int geyserMaxRewards) {
+        this.geyserMaxRewards = geyserMaxRewards;
+    }
+
+    /**
+     * @return true if rewards are matched to the worth of the offering
+     */
+    public boolean isGeyserMatchValue() {
+        return geyserMatchValue;
+    }
+
+    /**
+     * @param geyserMatchValue the geyserMatchValue to set
+     */
+    public void setGeyserMatchValue(boolean geyserMatchValue) {
+        this.geyserMatchValue = geyserMatchValue;
+    }
+
+    /**
+     * @return the fraction of the offered worth a vent pays back
+     */
+    public double getGeyserExchangeRate() {
+        return geyserExchangeRate;
+    }
+
+    /**
+     * @param geyserExchangeRate the geyserExchangeRate to set
+     */
+    public void setGeyserExchangeRate(double geyserExchangeRate) {
+        this.geyserExchangeRate = geyserExchangeRate;
+    }
+
+    /**
+     * @return the most a single reward may be worth, as a multiple of the richest item offered
+     */
+    public double getGeyserRewardCeiling() {
+        return geyserRewardCeiling;
+    }
+
+    /**
+     * @param geyserRewardCeiling the geyserRewardCeiling to set
+     */
+    public void setGeyserRewardCeiling(double geyserRewardCeiling) {
+        this.geyserRewardCeiling = geyserRewardCeiling;
+    }
+
+    /**
+     * @return true if a fed vent is provoked into erupting instead of waiting for the vanilla cycle
+     */
+    public boolean isGeyserEruptOnOffering() {
+        return geyserEruptOnOffering;
+    }
+
+    /**
+     * @param geyserEruptOnOffering the geyserEruptOnOffering to set
+     */
+    public void setGeyserEruptOnOffering(boolean geyserEruptOnOffering) {
+        this.geyserEruptOnOffering = geyserEruptOnOffering;
     }
 
     /**

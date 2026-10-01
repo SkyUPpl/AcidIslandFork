@@ -1,7 +1,22 @@
 ---
 acidisland:
   sign:
-    line0: "&1Đảo Axit"
-    line1: "[tên]"
+    line0: "<dark_blue>Đảo Axit"
+    line1: "[name]"
     line2: Nước là axit!
-    line3: Hãy cẩn thận! &c<3
+    line3: "Hãy cẩn thận! <red><3"
+  purified-water:
+    lore-acid: "<red>Nước axit"
+    lore-purified: "<green>Nước tinh khiết"
+  geyser:
+    offering: "[actionbar]<dark_aqua>Miệng phun rít lên và nuốt chửng <yellow>[item]</yellow>."
+    offering-channel: "[actionbar]<dark_aqua>Miệng phun rít lên và nuốt chửng <yellow>[item]</yellow> <gray>([channel])"
+    churning: "[actionbar]<dark_aqua>Miệng phun đang sục sôi và bắt đầu phồng lên..."
+    payout: "[actionbar]<gold>Mạch nước phun trào lên, đáp lại lễ vật của bạn."
+    payout-channel: "[actionbar]<gold>Mạch nước phun trào lên, đáp lại bằng <yellow>[channel]</yellow>."
+    channels:
+      gems: "đá quý"
+      nether: "lửa"
+      mineral: "đá và kim loại"
+      forestry: "cây cỏ"
+      husbandry: "sinh vật"

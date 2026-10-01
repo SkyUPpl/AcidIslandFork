@@ -1,8 +1,23 @@
 ---
 acidisland:
   sign:
-    line0: "&1InsulaAcida"
+    line0: "<dark_blue>InsulaAcida"
     line1: "[name]"
     line2: Apa este acida!
-    line3: Ai grija! &c<3
+    line3: "Ai grija! <red><3"
 
+  purified-water:
+    lore-acid: "<red>Apă acidă"
+    lore-purified: "<green>Apă purificată"
+  geyser:
+    offering: "[actionbar]<dark_aqua>Gura vulcanului șuieră și înghite <yellow>[item]</yellow>."
+    offering-channel: "[actionbar]<dark_aqua>Gura vulcanului șuieră și înghite <yellow>[item]</yellow> <gray>([channel])"
+    churning: "[actionbar]<dark_aqua>Gura vulcanului clocotește și începe să se umfle..."
+    payout: "[actionbar]<gold>Geizerul eruptează și răspunde ofertelor tale."
+    payout-channel: "[actionbar]<gold>Geizerul eruptează, răspunzând <yellow>[channel]</yellow> în felul cuvenit."
+    channels:
+      gems: "pietre prețioase"
+      nether: "foc"
+      mineral: "piatră și metal"
+      forestry: "lucruri verzi"
+      husbandry: "lucruri vii"

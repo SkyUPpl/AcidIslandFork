@@ -1,7 +1,22 @@
 ---
 acidisland:
   sign:
-    line0: "&1Кислотний острів"
+    line0: "<dark_blue>Кислотний острів"
     line1: "[name]"
     line2: Вода кислотна!
-    line3: Будь обережний! &c<3
+    line3: "Будь обережний! <red><3"
+  purified-water:
+    lore-acid: "<red>Кислотна вода"
+    lore-purified: "<green>Очищена вода"
+  geyser:
+    offering: "[actionbar]<dark_aqua>Жерло шипить і поглинає <yellow>[item]</yellow>."
+    offering-channel: "[actionbar]<dark_aqua>Жерло шипить і поглинає <yellow>[item]</yellow> <gray>([channel])"
+    churning: "[actionbar]<dark_aqua>Жерло кипить і починає розширюватися..."
+    payout: "[actionbar]<gold>Гейзер вибухає та відповідає на ваші дари."
+    payout-channel: "[actionbar]<gold>Гейзер вибухає, відповідаючи <yellow>[channel]</yellow> в рівній мірі."
+    channels:
+      gems: "дорогоцінності"
+      nether: "вогонь"
+      mineral: "камінь і метал"
+      forestry: "зелень"
+      husbandry: "живі істоти"

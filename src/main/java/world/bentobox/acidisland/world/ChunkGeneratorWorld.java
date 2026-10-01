@@ -1,6 +1,5 @@
 package world.bentobox.acidisland.world;
 
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +40,12 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
             new FloorMats(Material.NETHERRACK, Material.NETHERRACK), Environment.NORMAL,
             new FloorMats(Material.SMOOTH_SANDSTONE, Material.SMOOTH_SANDSTONE), Environment.THE_END,
             new FloorMats(Material.END_STONE, Material.END_STONE));
+    // Only exist on Minecraft 26.2 and later; null on older servers
+    private static final Material SULFUR = Material.getMaterial("SULFUR");
+    private static final Material CINNABAR = Material.getMaterial("CINNABAR");
     private PerlinOctaveGenerator gen;
+    // Populators run after vanilla decoration, so sulfur vents are not overwritten by biome features
+    private final List<BlockPopulator> populators;
 
     private record WorldConfig(int seaHeight, Material waterBlock) {}
 
@@ -54,6 +58,7 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
         seaHeight.put(Environment.NORMAL, new WorldConfig(addon.getSettings().getSeaHeight(), addon.getSettings().getWaterBlock()));
         seaHeight.put(Environment.NETHER, new WorldConfig(addon.getSettings().getNetherSeaHeight(), addon.getSettings().getNetherWaterBlock()));
         seaHeight.put(Environment.THE_END, new WorldConfig(addon.getSettings().getEndSeaHeight(), addon.getSettings().getEndWaterBlock()));
+        populators = SulfurVentPopulator.isSupported() ? List.of(new SulfurVentPopulator(addon)) : List.of();
         rand.setSeed(2137);
         gen = new PerlinOctaveGenerator((long) (rand.nextLong() * rand.nextGaussian()), 8);
         gen.setScale(1.0/30.0);
@@ -78,35 +83,49 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
     }
 
     private void addNoise(@NonNull WorldInfo worldInfo, int chunkX, int chunkZ, @NonNull ChunkData chunkData) {
+        FloorMats mats = floorMats.get(worldInfo.getEnvironment());
+        boolean overworld = worldInfo.getEnvironment().equals(Environment.NORMAL);
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-            	int noiseRange = 25; //25
+                int noiseRange = 25;
                 int n = (int)(noiseRange * gen.noise((chunkX << 4) + (double)x, (chunkZ << 4) + (double)z, 0.5, 0.5, true));
-                int maxY = worldInfo.getMinHeight()+ noiseRange + n;
-                for (int y = worldInfo.getMinHeight(); y <= maxY; y++) {
-                    chunkData.setBlock(x, y, z, rand.nextBoolean() ? floorMats.get(worldInfo.getEnvironment()).top()  : floorMats.get(worldInfo.getEnvironment()).base());
+                int top = noiseRange + n;
+                for (int y = worldInfo.getMinHeight(); y < top; y++) {
+                    chunkData.setBlock(x, y, z, rand.nextBoolean() ? mats.top() : mats.base());
                 }
-                //dodatki
-                if (worldInfo.getEnvironment() == Environment.NORMAL && rand.nextInt(100) < 30) {
-                	if (rand.nextInt(100) < 30) {
-                		SeaPickle pickle = (SeaPickle) Material.SEA_PICKLE.createBlockData();
-                		pickle.setPickles(rand.nextInt(pickle.getMinimumPickles(), pickle.getMaximumPickles()+1));
-                		chunkData.setBlock(x, maxY + 1, z, pickle);
-                	} else if (rand.nextBoolean()) {
-                		chunkData.setBlock(x, maxY + 1, z, Material.SEAGRASS);
-                	} else {
-                		chunkData.setBlock(x, maxY + 1, z, Material.TALL_SEAGRASS);
-                		Bisected bisected = (Bisected) Material.TALL_SEAGRASS.createBlockData();
-                		bisected.setHalf(Half.TOP);
-                		chunkData.setBlock(x, maxY + 2, z, bisected);
-                	}
-                } else if (worldInfo.getEnvironment() == Environment.NETHER && rand.nextInt(100) < 15) {
-                	chunkData.setBlock(x, maxY, z, Material.GLOWSTONE);
+                if (overworld && top - 1 > worldInfo.getMinHeight()) {
+                    chunkData.setBlock(x, top - 1, z, floorSurface());
                 }
             }
         }
         // Make an solid base so sand doesn't fall into the void
         chunkData.setRegion(0, worldInfo.getMinHeight(), 0, 16, worldInfo.getMinHeight() + 1 , 16, Material.BEDROCK);
+    }
+
+    /**
+     * Picks the ocean floor surface block: mostly sand, broken up with gravel and tuff
+     * patches, the odd magma block bubbling away, and on Minecraft 26.2+ scatterings
+     * of sulfur and cinnabar as found around vanilla sulfur springs
+     */
+    private Material floorSurface() {
+        int r = rand.nextInt(100);
+        Material m;
+        if (r < 55) {
+            m = Material.SAND;
+        } else if (r < 70) {
+            m = Material.GRAVEL;
+        } else if (r < 80) {
+            m = Material.SANDSTONE;
+        } else if (r < 88) {
+            m = Material.TUFF;
+        } else if (r < 93) {
+            m = Material.MAGMA_BLOCK;
+        } else if (r < 97) {
+            m = SULFUR == null ? Material.GRAVEL : SULFUR;
+        } else {
+            m = CINNABAR == null ? Material.TUFF : CINNABAR;
+        }
+        return m;
     }
 
     @Override
@@ -148,75 +167,77 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
 
     @Override
     public List<BlockPopulator> getDefaultPopulators(final World world) {
-        return Collections.emptyList();
+        return populators;
     }
 
     /*
      * Nether Section
      */
     private void makeNetherRoof() {
-
-        // Make the roof - common across the world
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                // Do the ceiling
                 setBlock(x, -1, z, Material.BEDROCK);
-                // Next three layers are a mix of bedrock and netherrack
-                for (int y = 2; y < 5; y++) {
-                    double r = gen.noise(x, - y, z, 0.5, 0.5);
-                    if (r > 0D) {
-                        setBlock(x, - y, z, Material.BEDROCK);
-                    }
-                }
-                // Next three layers are a mix of netherrack and air
-                for (int y = 5; y < 8; y++) {
-                    double r = gen.noise(x, - y, z, 0.5, 0.5);
-                    if (r > 0D) {
-                        setBlock(x, -y, z, Material.NETHERRACK);
-                    } else {
-                        setBlock(x, -y, z, Material.AIR);
-                    }
-                }
-                // Layer 8 may be glowstone
-                double r = gen.noise(x, - 8, z, rand.nextFloat(), rand.nextFloat());
-                if (r > 0.5D) {
-                    // Have blobs of glowstone
-                    switch (rand.nextInt(4)) {
-                    case 1:
-                        // Single block
-                        setBlock(x, -8, z, Material.GLOWSTONE);
-                        if (x < 14 && z < 14) {
-                            setBlock(x + 1, -8, z + 1, Material.GLOWSTONE);
-                            setBlock(x + 2, -8, z + 2, Material.GLOWSTONE);
-                            setBlock(x + 1, -8, z + 2, Material.GLOWSTONE);
-                            setBlock(x + 1, -8, z + 2, Material.GLOWSTONE);
-                        }
-                        break;
-                    case 2:
-                        // Stalatite
-                        for (int i = 0; i < rand.nextInt(10); i++) {
-                            setBlock(x, - 8 - i, z, Material.GLOWSTONE);
-                        }
-                        break;
-                    case 3:
-                        setBlock(x, -8, z, Material.GLOWSTONE);
-                        if (x > 3 && z > 3) {
-                            for (int xx = 0; xx < 3; xx++) {
-                                for (int zz = 0; zz < 3; zz++) {
-                                    setBlock(x - xx, - 8 - rand.nextInt(2), z - xx, Material.GLOWSTONE);
-                                }
-                            }
-                        }
-                        break;
-                    default:
-                        setBlock(x, -8, z, Material.GLOWSTONE);
-                    }
-                    setBlock(x, -8, z, Material.GLOWSTONE);
-                } else {
-                    setBlock(x, -8, z, Material.AIR);
+                makeBedrockLayers(x, z);
+                makeNetherrackLayers(x, z);
+                makeGlowstoneLayer(x, z);
+            }
+        }
+    }
+
+    /** Layers y=2..4: solid bedrock where noise > 0. */
+    private void makeBedrockLayers(int x, int z) {
+        for (int y = 2; y < 5; y++) {
+            if (gen.noise(x, -y, z, 0.5, 0.5) > 0D) {
+                setBlock(x, -y, z, Material.BEDROCK);
+            }
+        }
+    }
+
+    /** Layers y=5..7: netherrack or air based on noise. */
+    private void makeNetherrackLayers(int x, int z) {
+        for (int y = 5; y < 8; y++) {
+            Material m = gen.noise(x, -y, z, 0.5, 0.5) > 0D ? Material.NETHERRACK : Material.AIR;
+            setBlock(x, -y, z, m);
+        }
+    }
+
+    /** Layer y=8: glowstone blobs or air based on noise. */
+    private void makeGlowstoneLayer(int x, int z) {
+        if (gen.noise(x, -8, z, rand.nextFloat(), rand.nextFloat()) > 0.5D) {
+            placeGlowstoneBlob(x, z);
+            setBlock(x, -8, z, Material.GLOWSTONE);
+        } else {
+            setBlock(x, -8, z, Material.AIR);
+        }
+    }
+
+    private void placeGlowstoneBlob(int x, int z) {
+        switch (rand.nextInt(4)) {
+            case 1 -> {
+                setBlock(x, -8, z, Material.GLOWSTONE);
+                if (x < 14 && z < 14) {
+                    setBlock(x + 1, -8, z + 1, Material.GLOWSTONE);
+                    setBlock(x + 2, -8, z + 2, Material.GLOWSTONE);
+                    setBlock(x + 1, -8, z + 2, Material.GLOWSTONE);
                 }
             }
-
+            case 2 -> {
+                // Stalactite
+                for (int i = 0; i < rand.nextInt(10); i++) {
+                    setBlock(x, -8 - i, z, Material.GLOWSTONE);
+                }
+            }
+            case 3 -> {
+                setBlock(x, -8, z, Material.GLOWSTONE);
+                if (x > 3 && z > 3) {
+                    for (int xx = 0; xx < 3; xx++) {
+                        for (int zz = 0; zz < 3; zz++) {
+                            setBlock(x - xx, -8 - rand.nextInt(2), z - zz, Material.GLOWSTONE);
+                        }
+                    }
+                }
+            }
+            default -> setBlock(x, -8, z, Material.GLOWSTONE);
         }
     }
 

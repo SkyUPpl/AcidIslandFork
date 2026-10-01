@@ -72,6 +72,22 @@ acid:
       helmet: false
       # If player wears any set of full armor, they will not suffer from acid damage
       full-armor: false
+  # Purified water mechanic. Enable to allow players to collect and purify water.
+  # Acid water damages the player when drunk; purified water heals them.
+  # Added since 1.21.
+  purified-water:
+    # Enable or disable the entire purified water mechanic.
+    enabled: true
+    # Health (in half-hearts) restored to a player who drinks a purified water bottle.
+    heal-amount: 4.0
+    # Allow purifying a water bucket by smelting it in a furnace.
+    # Cook time is 2000 ticks (100 seconds) to balance the effort.
+    # Disable if this feels too easy for your server's balance.
+    bucket-furnace-enabled: true
+    # Run the purified water mechanic in the addon's Nether world (island or vanilla).
+    nether-enabled: true
+    # Run the purified water mechanic in the addon's End world (island or vanilla).
+    end-enabled: true
 world:
   # Friendly name for this world. Used in admin commands. Must be a single word
   # /!\ BentoBox currently does not support changing this value mid-game. If you do need to change it, do a full reset of your databases and worlds.
@@ -144,10 +160,53 @@ world:
   # This creates an ocean floor environment, with vanilla elements.
   # /!\ BentoBox currently does not support changing this value mid-game. If you do need to change it, do a full reset of your databases and worlds.
   ocean-floor: true
+  # Sulfur vents
+  # Chance (0-100) per chunk of a sulfur vent generating just below the sea surface.
+  # Vents are made of potent sulfur over a magma block and bubble, gas, and erupt as geysers.
+  # Changing this only affects newly generated chunks.
+  # Requires Minecraft 26.2 or later - ignored on older servers.
+  sulfur-vent-chance: 10
+  # Geyser offerings
+  # Items a player throws into the water around a sulfur vent are consumed as offerings
+  # and transmuted into rewards that are spewed out when the vent erupts as a geyser.
+  # Items floating near a vent are tugged into its pool, so a throw does not have to be
+  # accurate. Only items thrown by a player count - death drops, block drops and mob
+  # drops that wash into a pool are left alone.
+  # Rewards are defined in geyser-loot.yml in the addon's data folder.
+  # Works with acid item destruction: items the acid destroys within a vent's pool
+  # count as offerings instead of being lost.
+  # Requires Minecraft 26.2 or later - ignored on older servers.
+  geyser-offerings:
+    enabled: true
+    # Maximum number of rewards a single eruption can spew, however many items were offered.
+    max-rewards: 12
+    # Answer an offering with rewards of roughly the same worth, instead of one random
+    # reward per item. A vent transmutes rather than destroys: feed it a diamond and it
+    # owes a diamond's worth back, feed it cobble and it owes cobble. Worth comes from
+    # geyser-values.yml, which can defer to the Level addon's block values.
+    # Turn this off for the old one-roll-per-item payout.
+    match-value: true
+    # Fraction of the offered worth a vent pays back when matching worth.
+    # 1.0 is a fair trade, below 1.0 makes the vent take a cut, above 1.0 makes offering
+    # profitable in itself - which players will farm, so raise with care.
+    exchange-rate: 1.0
+    # The most a single reward may be worth, as a multiple of the worth of the richest
+    # item offered. A stack of cobble is worth an emerald and a cobble generator is
+    # infinite, so without this a vent becomes a gem printer. Rewards named in a from:
+    # list in geyser-loot.yml ignore this - a transmutation the admin has written down
+    # is always allowed. Set to 0 for no limit.
+    reward-ceiling: 8.0
+    # Provoke a fed vent into erupting a few seconds after it is fed, instead of waiting
+    # for the vanilla eruption cycle, so the reward follows the offering while the player
+    # is still there to see it. Turn this off to leave eruption timing entirely to vanilla
+    # - offerings are then held until the vent erupts.
+    erupt-on-offering: true
   # Structures
   # This creates an vanilla structures in the worlds.
+  # Trial chambers and other underground structures generate buried
+  # beneath the ocean floor, giving a reason to dig down.
   # /!\ BentoBox currently does not support changing this value mid-game. If you do need to change it, do a full reset of your databases and worlds.
-  make-structures: false
+  make-structures: true
   # Caves
   # This creates an vanilla caves in the worlds.
   # /!\ BentoBox currently does not support changing this value mid-game. If you do need to change it, do a full reset of your databases and worlds.
@@ -163,7 +222,9 @@ world:
   # a new island for example. Options are SURVIVAL, CREATIVE, ADVENTURE, SPECTATOR
   default-game-mode: SURVIVAL
   # The default biome for the overworld
-  default-biome: WARM_OCEAN
+  # SULFUR_CAVES (Minecraft 26.2+) gives acid-green water with green fog.
+  # On older servers this biome does not exist and WARM_OCEAN is used instead.
+  default-biome: SULFUR_CAVES
   # The default biome for the nether world (this may affect what mobs can spawn)
   default-nether-biome: NETHER_WASTES
   # The default biome for the end world (this may affect what mobs can spawn)
@@ -543,12 +604,18 @@ island:
       require-confirmation: true
   deaths:
     # Whether deaths are counted or not.
+    # If false, BentoBox does not count deaths and the Level addon does not record deaths against islands.
     counted: true
     # Maximum number of deaths to count. The death count can be used by add-ons.
+    # Since Level 2.29.0 this also caps how many deaths each member can contribute to an island's death penalty.
     max: 10
-    # When a player joins a team, reset their death count
+    # When a player joins a team, reset their death count.
+    # This only affects BentoBox's own per-player death count, used by the %acidisland_deaths% placeholder.
+    # Since Level 2.29.0, island levels use per-island death tracking and are not affected by this setting.
     team-join-reset: true
-    # Reset player death count when they start a new island or reset and island
+    # Reset player death count when they start a new island or reset an island.
+    # This only affects BentoBox's own per-player death count.
+    # Since Level 2.29.0 the Level addon clears an island's own death record automatically when it is reset or deleted.
     reset-on-new-island: true
   customranks: {}
 protection:

@@ -14,8 +14,10 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import world.bentobox.acidisland.commands.IslandAboutCommand;
+import world.bentobox.acidisland.geysers.GeyserOfferingsTask;
 import world.bentobox.acidisland.listeners.AcidEffect;
 import world.bentobox.acidisland.listeners.LavaCheck;
+import world.bentobox.acidisland.listeners.PurifiedWaterListener;
 import world.bentobox.acidisland.world.AcidBiomeProvider;
 import world.bentobox.acidisland.world.AcidTask;
 import world.bentobox.acidisland.world.ChunkGeneratorWorld;
@@ -35,6 +37,7 @@ public class AcidIsland extends GameModeAddon {
 
     private @Nullable AISettings settings;
     private @Nullable AcidTask acidTask;
+    private @Nullable GeyserOfferingsTask geyserOfferingsTask;
     private @Nullable ChunkGenerator chunkGenerator;
     private final Config<AISettings> config = new Config<>(this, AISettings.class);
     private BiomeProvider biomeProvider;
@@ -55,7 +58,10 @@ public class AcidIsland extends GameModeAddon {
         // Save the default config from config.yml
         saveDefaultConfig();
         // Load settings from config.yml. This will check if there are any issues with it too.
-        loadSettings();
+        if (!loadSettings()) {
+            // Settings did not load - the addon has been disabled
+            return;
+        }
         // Make the biome provider
         this.biomeProvider = new AcidBiomeProvider(this);
         // Chunk generator
@@ -103,18 +109,30 @@ public class AcidIsland extends GameModeAddon {
         // Acid Effects
         registerListener(new AcidEffect(this));
         registerListener(new LavaCheck(this));
+        registerListener(new PurifiedWaterListener(this));
         // Burn everything
         acidTask = new AcidTask(this);
+        // Sulfur vents accept offerings and transmute them into geyser rewards
+        geyserOfferingsTask = new GeyserOfferingsTask(this);
     }
 
     @Override
     public void onDisable() {
         if (acidTask != null) acidTask.cancelTasks();
+        if (geyserOfferingsTask != null) geyserOfferingsTask.cancelTasks();
     }
 
     @NonNull
     public AISettings getSettings() {
         return Objects.requireNonNull(settings);
+    }
+
+    /**
+     * @return the geyser offerings task, or null before onEnable
+     */
+    @Nullable
+    public GeyserOfferingsTask getGeyserOfferingsTask() {
+        return geyserOfferingsTask;
     }
 
     /* (non-Javadoc)
@@ -153,34 +171,29 @@ public class AcidIsland extends GameModeAddon {
      * @return world loaded or generated
      */
     private World getWorld(String worldName2, Environment env, @Nullable ChunkGenerator chunkGenerator2) {
-        // Set world name
-        worldName2 = env.equals(World.Environment.NETHER) ? worldName2 + NETHER : worldName2;
-        worldName2 = env.equals(World.Environment.THE_END) ? worldName2 + THE_END : worldName2;
-        WorldCreator wc = WorldCreator.name(worldName2).environment(env).type(WorldType.NORMAL);
+        String name = getWorldName(worldName2, env);
+        WorldCreator wc = WorldCreator.name(name).environment(env).type(WorldType.NORMAL);
         World w = settings.isUseOwnGenerator() ? wc.createWorld() : wc.generator(chunkGenerator2).createWorld();
-        // Set spawn rates
         if (w != null && getSettings() != null) {
-            if (getSettings().getSpawnLimitMonsters() > 0) {
-                w.setSpawnLimit(SpawnCategory.MONSTER, getSettings().getSpawnLimitMonsters());
-            }
-            if (getSettings().getSpawnLimitAmbient() > 0) {
-                w.setSpawnLimit(SpawnCategory.AMBIENT, getSettings().getSpawnLimitAmbient());
-            }
-            if (getSettings().getSpawnLimitAnimals() > 0) {
-                w.setSpawnLimit(SpawnCategory.ANIMAL, getSettings().getSpawnLimitAnimals());
-            }
-            if (getSettings().getSpawnLimitWaterAnimals() > 0) {
-                w.setSpawnLimit(SpawnCategory.WATER_ANIMAL, getSettings().getSpawnLimitWaterAnimals());
-            }
-            if (getSettings().getTicksPerAnimalSpawns() > 0) {
-                w.setTicksPerSpawns(SpawnCategory.ANIMAL, getSettings().getTicksPerAnimalSpawns());
-            }
-            if (getSettings().getTicksPerMonsterSpawns() > 0) {
-                w.setTicksPerSpawns(SpawnCategory.MONSTER, getSettings().getTicksPerMonsterSpawns());
-            }
+            configureSpawnRates(w);
         }
         return w;
+    }
 
+    private String getWorldName(String base, Environment env) {
+        if (env.equals(World.Environment.NETHER)) return base + NETHER;
+        if (env.equals(World.Environment.THE_END)) return base + THE_END;
+        return base;
+    }
+
+    private void configureSpawnRates(World w) {
+        AISettings s = getSettings();
+        if (s.getSpawnLimitMonsters() > 0) w.setSpawnLimit(SpawnCategory.MONSTER, s.getSpawnLimitMonsters());
+        if (s.getSpawnLimitAmbient() > 0) w.setSpawnLimit(SpawnCategory.AMBIENT, s.getSpawnLimitAmbient());
+        if (s.getSpawnLimitAnimals() > 0) w.setSpawnLimit(SpawnCategory.ANIMAL, s.getSpawnLimitAnimals());
+        if (s.getSpawnLimitWaterAnimals() > 0) w.setSpawnLimit(SpawnCategory.WATER_ANIMAL, s.getSpawnLimitWaterAnimals());
+        if (s.getTicksPerAnimalSpawns() > 0) w.setTicksPerSpawns(SpawnCategory.ANIMAL, s.getTicksPerAnimalSpawns());
+        if (s.getTicksPerMonsterSpawns() > 0) w.setTicksPerSpawns(SpawnCategory.MONSTER, s.getTicksPerMonsterSpawns());
     }
 
     @Override

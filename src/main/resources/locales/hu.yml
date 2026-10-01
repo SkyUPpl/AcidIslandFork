@@ -5,8 +5,23 @@
 
 acidisland:
   sign:
-    line0: "&1SavSziget"
+    line0: "<dark_blue>SavSziget"
     line1: "[name]"
     line2: "A víz savas!"
-    line3: "Légy óvatos! &c<3"
+    line3: "Légy óvatos! <red><3"
     
+  purified-water:
+    lore-acid: "<red>Savas víz"
+    lore-purified: "<green>Tisztított víz"
+  geyser:
+    offering: "[actionbar]<dark_aqua>A kürtő sziszegve elnyeli: <yellow>[item]</yellow>."
+    offering-channel: "[actionbar]<dark_aqua>A kürtő sziszegve elnyeli: <yellow>[item]</yellow> <gray>([channel])"
+    churning: "[actionbar]<dark_aqua>A kürtő forr és duzzadni kezd..."
+    payout: "[actionbar]<gold>A gejzír kitör és válaszol az áldozataidra."
+    payout-channel: "[actionbar]<gold>A gejzír kitör, és <yellow>[channel]</yellow> formájában válaszol."
+    channels:
+      gems: "drágakövek"
+      nether: "tűz"
+      mineral: "kő és fém"
+      forestry: "növények"
+      husbandry: "élőlények"

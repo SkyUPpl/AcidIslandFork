@@ -1,8 +1,9 @@
 package world.bentobox.acidisland.world;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -22,6 +23,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Cod;
 import org.bukkit.entity.Entity;
@@ -29,30 +31,33 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.Squid;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.eclipse.jdt.annotation.Nullable;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import world.bentobox.acidisland.AISettings;
 import world.bentobox.acidisland.AcidIsland;
-import world.bentobox.acidisland.mocks.ServerMocks;
+import world.bentobox.acidisland.events.EntityDamageByAcidEvent;
 
 /**
  * @author tastybento
  *
  */
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({Bukkit.class})
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class AcidTaskTest {
 
     @Mock
@@ -79,15 +84,16 @@ public class AcidTaskTest {
     @Mock
     private Location l;
 
-    @BeforeClass
-    public static void beforeClass() {
-        ServerMocks.newServer();
-    }
+    private ServerMock server;
+    private MockedStatic<Bukkit> mockedBukkit;
 
-    @Before
-    public void setUp() {
-        PowerMockito.mockStatic(Bukkit.class, Mockito.RETURNS_MOCKS);
-        when(Bukkit.getScheduler()).thenReturn(scheduler);
+    @BeforeEach
+    void setUp() {
+        server = MockBukkit.mock();
+        mockedBukkit = Mockito.mockStatic(Bukkit.class, Mockito.RETURNS_DEEP_STUBS);
+        mockedBukkit.when(Bukkit::getMinecraftVersion).thenReturn("1.21.11");
+        mockedBukkit.when(Bukkit::getServer).thenReturn(server);
+        mockedBukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
         when(scheduler.runTaskTimer(any(), any(Runnable.class), anyLong(), anyLong())).thenReturn(task);
 
         when(addon.getOverWorld()).thenReturn(world);
@@ -141,17 +147,17 @@ public class AcidTaskTest {
         at = new AcidTask(addon);
     }
 
-    /**
-     */
-    @After
-    public void tearDown() {
+    @AfterEach
+    void tearDown() {
+        mockedBukkit.closeOnDemand();
+        MockBukkit.unmock();
     }
 
     /**
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#AcidTask(world.bentobox.acidisland.AcidIsland)}.
      */
     @Test
-    public void testAcidTask() {
+    void testAcidTask() {
         verify(scheduler).runTaskTimer(eq(null), any(Runnable.class), eq(0L), eq(20L));
     }
 
@@ -159,7 +165,7 @@ public class AcidTaskTest {
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#findEntities()}.
      */
     @Test
-    public void testFindEntities() {
+    void testFindEntities() {
 
         at.findEntities();
         verify(scheduler).runTask(eq(null), any(Runnable.class));
@@ -169,7 +175,7 @@ public class AcidTaskTest {
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#applyDamage(org.bukkit.entity.Entity, long)}.
      */
     @Test
-    public void testApplyDamageRemoveItems() {
+    void testApplyDamageRemoveItems() {
         Item e = mock(Item.class);
         when(e.getLocation()).thenReturn(l);
         when(e.getWorld()).thenReturn(world);
@@ -180,7 +186,7 @@ public class AcidTaskTest {
         at.setItemsInWater(map);
         at.applyDamage(e, 0);
 
-        verify(world).playSound(eq(l), (Sound) Mockito.isNull(), anyFloat(), anyFloat());
+        verify(world).playSound(eq(l), any(Sound.class), anyFloat(), anyFloat());
         verify(e).remove();
         assertTrue(map.isEmpty());
     }
@@ -189,7 +195,7 @@ public class AcidTaskTest {
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#applyDamage(org.bukkit.entity.Entity, long)}.
      */
     @Test
-    public void testApplyDamageNoItemDamage() {
+    void testApplyDamageNoItemDamage() {
         settings.setAcidDestroyItemTime(0L);
         Item e = mock(Item.class);
         at.applyDamage(e, 0);
@@ -202,13 +208,13 @@ public class AcidTaskTest {
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#applyDamage(org.bukkit.entity.Entity, long)}.
      */
     @Test
-    public void testApplyDamageKeepItems() {
+    void testApplyDamageKeepItems() {
         Item e = mock(Item.class);
-        Location l = mock(Location.class);
+        Location loc = mock(Location.class);
         Block block = mock(Block.class);
         when(block.getType()).thenReturn(Material.AIR);
-        when(l.getBlock()).thenReturn(block);
-        when(e.getLocation()).thenReturn(l);
+        when(loc.getBlock()).thenReturn(block);
+        when(e.getLocation()).thenReturn(loc);
         when(e.getWorld()).thenReturn(world);
         // Put the item in the water
 
@@ -225,7 +231,7 @@ public class AcidTaskTest {
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#getEntityStream()}.
      */
     @Test
-    public void testGetEntityStream() {
+    void testGetEntityStream() {
         List<Entity> es = at.getEntityStream();
         assertEquals(12, es.size());
     }
@@ -234,9 +240,90 @@ public class AcidTaskTest {
      * Test method for {@link world.bentobox.acidisland.world.AcidTask#cancelTasks()}.
      */
     @Test
-    public void testCancelTasks() {
+    void testCancelTasks() {
         at.cancelTasks();
         verify(task).cancel();
+    }
+
+    // --- Additional coverage tests ---
+
+    /**
+     * Test getEntityStream with nether and end disabled.
+     */
+    @Test
+    void testGetEntityStreamOverworldOnly() {
+        settings.setNetherGenerate(false);
+        settings.setEndGenerate(false);
+        // Recreate to use updated settings
+        at = new AcidTask(addon);
+        List<Entity> es = at.getEntityStream();
+        // Only overworld entities (4)
+        assertEquals(4, es.size());
+    }
+
+    /**
+     * Test getEntityStream with nether enabled but netherIslands disabled.
+     */
+    @Test
+    void testGetEntityStreamNetherNoIslands() {
+        settings.setNetherIslands(false);
+        settings.setEndGenerate(false);
+        at = new AcidTask(addon);
+        List<Entity> es = at.getEntityStream();
+        // Only overworld entities (4)
+        assertEquals(4, es.size());
+    }
+
+    /**
+     * Test that applyDamage on LivingEntity with cancelled event does no damage.
+     */
+    @Test
+    void testApplyDamageLivingEntityCancelled() {
+        Skeleton s = mock(Skeleton.class);
+        when(s.getLocation()).thenReturn(l);
+        when(s.getWorld()).thenReturn(world);
+        AttributeInstance attr = mock(AttributeInstance.class);
+        when(attr.getValue()).thenReturn(0D);
+        when(s.getAttribute(any())).thenReturn(attr);
+        EntityEquipment equip = mock(EntityEquipment.class);
+        when(s.getEquipment()).thenReturn(equip);
+
+        // Cancel the event via plugin manager
+        mockedBukkit.when(Bukkit::getPluginManager).thenReturn(mock(org.bukkit.plugin.PluginManager.class));
+        org.bukkit.plugin.PluginManager pm = Bukkit.getPluginManager();
+        Mockito.doAnswer(inv -> {
+            Object event = inv.getArgument(0);
+            if (event instanceof EntityDamageByAcidEvent) {
+                ((EntityDamageByAcidEvent) event).setCancelled(true);
+            }
+            return null;
+        }).when(pm).callEvent(any());
+
+        at.applyDamage(s, 10);
+        verify(s, never()).damage(anyDouble());
+    }
+
+    /**
+     * Test that applyDamage removes item from tracking when not in water.
+     */
+    @Test
+    void testApplyDamageItemNotInWaterAnymore() {
+        Item e = mock(Item.class);
+        Location loc = mock(Location.class);
+        Block b = mock(Block.class);
+        when(b.getType()).thenReturn(Material.AIR);
+        when(loc.getBlock()).thenReturn(b);
+        when(e.getLocation()).thenReturn(loc);
+        when(e.getWorld()).thenReturn(world);
+
+        Map<Entity, Long> map = new HashMap<>();
+        map.put(e, 0L);
+        at.setItemsInWater(map);
+        at.applyDamage(e, System.currentTimeMillis());
+
+        // Item should be removed from tracking since it's not in water
+        assertTrue(at.getItemsInWater().isEmpty());
+        verify(e, never()).remove();
     }
 
 }

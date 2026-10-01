@@ -7,8 +7,23 @@
 
 acidisland:
   sign:
-    line0: "&1AcidIsland"
+    line0: "<dark_blue>AcidIsland"
     line1: "[name]"
     line2: "Voda je kyselina!"
-    line3: "Buď opatrný! &c<3"
+    line3: "Buď opatrný! <red><3"
     
+  purified-water:
+    lore-acid: "<red>Kyselá voda"
+    lore-purified: "<green>Čistá voda"
+  geyser:
+    offering: "[actionbar]<dark_aqua>Průduch syčí a pohlcuje <yellow>[item]</yellow>."
+    offering-channel: "[actionbar]<dark_aqua>Průduch syčí a pohlcuje <yellow>[item]</yellow> <gray>([channel])"
+    churning: "[actionbar]<dark_aqua>Průduch vře a začíná bobtnat..."
+    payout: "[actionbar]<gold>Gejzír vybuchuje a odpovídá na vaše oběti."
+    payout-channel: "[actionbar]<gold>Gejzír vybuchuje a odpovídá <yellow>[channel]</yellow> stejným způsobem."
+    channels:
+      gems: "drahokamy"
+      nether: "oheň"
+      mineral: "kámen a kov"
+      forestry: "zeleň"
+      husbandry: "živé tvory"
