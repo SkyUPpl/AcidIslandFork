@@ -84,6 +84,7 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
 
     private void addNoise(@NonNull WorldInfo worldInfo, int chunkX, int chunkZ, @NonNull ChunkData chunkData) {
         FloorMats mats = floorMats.get(worldInfo.getEnvironment());
+        /*
         boolean overworld = worldInfo.getEnvironment().equals(Environment.NORMAL);
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
@@ -98,6 +99,36 @@ public class ChunkGeneratorWorld extends ChunkGenerator {
                 }
             }
         }
+        */
+        
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+            	int noiseRange = 25; //25
+                int n = (int)(noiseRange * gen.noise((chunkX << 4) + (double)x, (chunkZ << 4) + (double)z, 0.5, 0.5, true));
+                int maxY = worldInfo.getMinHeight()+ noiseRange + n;
+                for (int y = worldInfo.getMinHeight(); y <= maxY; y++) {
+                	chunkData.setBlock(x, y, z, rand.nextBoolean() ? mats.top() : mats.base());
+                }
+                //dodatki
+                if (worldInfo.getEnvironment() == Environment.NORMAL && rand.nextInt(100) < 30) {
+                	if (rand.nextInt(100) < 30) {
+                		SeaPickle pickle = (SeaPickle) Material.SEA_PICKLE.createBlockData();
+                		pickle.setPickles(rand.nextInt(pickle.getMinimumPickles(), pickle.getMaximumPickles()+1));
+                		chunkData.setBlock(x, maxY + 1, z, pickle);
+                	} else if (rand.nextBoolean()) {
+                		chunkData.setBlock(x, maxY + 1, z, Material.SEAGRASS);
+                	} else {
+                		chunkData.setBlock(x, maxY + 1, z, Material.TALL_SEAGRASS);
+                		Bisected bisected = (Bisected) Material.TALL_SEAGRASS.createBlockData();
+                		bisected.setHalf(Half.TOP);
+                		chunkData.setBlock(x, maxY + 2, z, bisected);
+                	}
+                } else if (worldInfo.getEnvironment() == Environment.NETHER && rand.nextInt(100) < 15) {
+                	chunkData.setBlock(x, maxY, z, Material.GLOWSTONE);
+                }
+            }
+        }
+        
         // Make an solid base so sand doesn't fall into the void
         chunkData.setRegion(0, worldInfo.getMinHeight(), 0, 16, worldInfo.getMinHeight() + 1 , 16, Material.BEDROCK);
     }
